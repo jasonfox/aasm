@@ -17,6 +17,7 @@ class AASM::SupportingClasses::Event
       if transition.perform(obj, *args)
         next_state = to_state || Array(transition.to).first
         transition.execute(obj, *args)
+        log_event(obj, transition) if options[:log]
         break
       end
     end
@@ -105,5 +106,10 @@ class AASM::SupportingClasses::Event
     Array(trans_opts[:from]).each do |s|
       @transitions << AASM::SupportingClasses::StateTransition.new(trans_opts.merge({:from => s.to_sym}))
     end
+  end
+
+  def log_event(obj, trans)
+    table_name = ActiveSupport::Inflector.singularize(obj.class.table_name)
+    obj.connection.execute("insert into #{table_name}_events (#{table_name}_id, event, from_state, to_state, created_at) values (#{obj.id}, '#{name}', '#{trans.from}', '#{trans.to}', '#{Time.now.to_s(:db)}')")
   end
 end
